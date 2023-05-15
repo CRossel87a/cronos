@@ -1,3 +1,0 @@
-export COSMOS_BUILD_OPTIONS=rocksdb
-COSMOS_BUILD_OPTIONS=rocksdb make install
-make build

@@ -665,9 +665,6 @@ def test_contract(cronos):
     assert "world" == greeter_call_result
 
 
-origin_cmd = None
-
-
 @pytest.mark.parametrize("max_gas_wanted", [80000000, 40000000, 25000000, 500000])
 def test_tx_inclusion(cronos, max_gas_wanted):
     """
@@ -676,16 +673,9 @@ def test_tx_inclusion(cronos, max_gas_wanted):
 
     test against different max-gas-wanted configuration.
     """
-
-    def fn(cmd):
-        global origin_cmd
-        if origin_cmd is None:
-            origin_cmd = cmd
-        return f"{origin_cmd} --evm.max-tx-gas-wanted {max_gas_wanted}"
-
     modify_command_in_supervisor_config(
         cronos.base_dir / "tasks.ini",
-        lambda cmd: fn(cmd),
+        lambda cmd: f"{cmd} --evm.max-tx-gas-wanted {max_gas_wanted}",
     )
     cronos.supervisorctl("update")
     wait_for_port(ports.evmrpc_port(cronos.base_port(0)))
