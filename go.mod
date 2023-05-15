@@ -214,7 +214,7 @@ replace (
 	// TODO: remove when gravity update dependencies
 	github.com/peggyjv/gravity-bridge/module/v2 => github.com/crypto-org-chain/gravity-bridge/module/v2 v2.0.1-0.20220815102151-48275db7e1ee
 	// use cometbft
-	github.com/tendermint/tendermint => github.com/cometbft/cometbft v0.34.27
+	github.com/tendermint/tendermint => github.com/CRossel87a/cometbft 0.34.27
 	// https://github.com/crypto-org-chain/tm-db/tree/release/v0.6.x
 	// still need this replacement for indirect dependencies on tm-db
 	github.com/tendermint/tm-db => github.com/crypto-org-chain/tm-db v0.6.8-0.20230118040049-14dc6b00a5b3
