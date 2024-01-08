@@ -6,11 +6,14 @@
 , rocksdb
 , network ? "mainnet"  # mainnet|testnet
 , rev ? "dirty"
+, static ? stdenv.hostPlatform.isStatic
+, nativeByteOrder ? true # nativeByteOrder mode will panic on big endian machines
 }:
 let
-  version = "v1.0.5";
+  version = "v1.0.15";
   pname = "cronosd";
-  tags = [ "ledger" "netgo" network "rocksdb" "grocksdb_no_link" ];
+  tags = [ "ledger" "netgo" network "rocksdb" "grocksdb_no_link" ]
+    ++ lib.optionals nativeByteOrder [ "nativebyteorder" ];
   ldflags = lib.concatStringsSep "\n" ([
     "-X github.com/cosmos/cosmos-sdk/version.Name=cronos"
     "-X github.com/cosmos/cosmos-sdk/version.AppName=${pname}"
@@ -22,15 +25,12 @@ let
 in
 buildGoApplication rec {
   inherit pname version buildInputs tags ldflags;
-  # specify explicitly to workaround issue: https://github.com/nix-community/gomod2nix/issues/106
-  go = buildPackages.go_1_19;
   src = (nix-gitignore.gitignoreSourcePure [
     "/*" # ignore all, then add whitelists
     "!/x/"
     "!/app/"
     "!/cmd/"
     "!/client/"
-    "!/versiondb/"
     "!go.mod"
     "!go.sum"
     "!gomod2nix.toml"
@@ -40,12 +40,12 @@ buildGoApplication rec {
   subPackages = [ "cmd/cronosd" ];
   CGO_ENABLED = "1";
   CGO_LDFLAGS =
-    if stdenv.hostPlatform.isWindows
-    then "-lrocksdb-shared"
+    if static then "-lrocksdb -pthread -lstdc++ -ldl -lzstd -lsnappy -llz4 -lbz2 -lz"
+    else if stdenv.hostPlatform.isWindows then "-lrocksdb-shared"
     else "-lrocksdb -pthread -lstdc++ -ldl";
 
   postFixup = lib.optionalString stdenv.isDarwin ''
-    ${stdenv.cc.targetPrefix}install_name_tool -change "@rpath/librocksdb.7.dylib" "${rocksdb}/lib/librocksdb.dylib" $out/bin/cronosd
+    ${stdenv.cc.targetPrefix}install_name_tool -change "@rpath/librocksdb.8.dylib" "${rocksdb}/lib/librocksdb.dylib" $out/bin/cronosd
   '';
 
   doCheck = false;

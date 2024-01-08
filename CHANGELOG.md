@@ -1,5 +1,91 @@
 # Changelog
 
+*Jan 05, 2024*
+
+## v1.0.15
+
+- [#1265](https://github.com/crypto-org-chain/cronos/pull/1265) Fix nil pointer panic when filter timeout
+- [#1270](https://github.com/crypto-org-chain/cronos/pull/1270) Avoid out of bound panic from error message
+
+*Dec 15, 2023*
+
+## v1.0.14
+
+- [#1259](https://github.com/crypto-org-chain/cronos/pull/1259) Use a hard-fork style upgrade to adjust feemarket parameters.
+
+*Nov 20, 2023*
+
+## v1.0.13
+
+- [#1197](https://github.com/crypto-org-chain/cronos/pull/1197) tune rocksdb options to control memory consumption.
+- [#1207](https://github.com/crypto-org-chain/cronos/pull/1207) Update rocksdb to `v8.6.7`.
+- [#1240](https://github.com/crypto-org-chain/cronos/pull/1240) Revert rocksdb upgrade.
+- [#1239](https://github.com/crypto-org-chain/cronos/pull/1239) Refactor websocket/subscription system to improve performance and stability.
+- [#1246](https://github.com/crypto-org-chain/cronos/pull/1246) Update memiavl deps to include bug fixes and state sync restore performance improvement.
+
+*Aug 11, 2023*
+
+## v1.0.12
+
+- [#986](https://github.com/crypto-org-chain/cronos/pull/986) Use go 1.20.
+- [#984](https://github.com/crypto-org-chain/cronos/pull/984) experimental integration of memiavl.
+- [#985](https://github.com/crypto-org-chain/cronos/pull/985) Fix versiondb verify command on older versions
+- [#1043](https://github.com/crypto-org-chain/cronos/pull/1043) Integrate latest memiavl and local state-sync commands in cosmos-sdk
+- [#1043](https://github.com/crypto-org-chain/cronos/pull/1043) Update ethermint dependency
+  - Avoid channel get changed when concurrent subscribe happens ([ethermint commit](https://github.com/crypto-org-chain/ethermint/commit/72bbe0a80dfd3c586868e2f0b4fbed72593c45bf)).
+  - call Close method on app to cleanup resource on graceful shutdown ([ethermint commit](https://github.com/crypto-org-chain/ethermint/commit/0ea7b86532a1144f229961f94b4524d5889e874d)).
+- [#1081](https://github.com/crypto-org-chain/cronos/pull/1081) Build with nativebyteorder by default, the released binaries only support little-endian machines, big-endian machines need to build custom binary for themselves.
+- [#940](https://github.com/crypto-org-chain/cronos/pull/940) Update rocksdb dependency to 8.1.1.
+- [#1113](https://github.com/crypto-org-chain/cronos/pull/1113) Use standalone versiondb package, which supports restore from local snapshot.
+
+### Bug Fixes
+
+- [#1058](https://github.com/crypto-org-chain/cronos/pull/1058) Fix decode log for multi topics in websocket subscribe ([ethermint commit](https://github.com/crypto-org-chain/ethermint/commit/2136ad029860c819942ad1836dd3f42585002233)).
+- [#1062](https://github.com/crypto-org-chain/cronos/pull/1062) Update cometbft `v0.34.29` with several minor bug fixes and low-severity security-fixes.
+- [#1102](https://github.com/crypto-org-chain/cronos/pull/1102) avoid duplicate cache events emitted from ibc and gravity hook.
+- [#1125](https://github.com/crypto-org-chain/cronos/pull/1125) Fix genesis migrate for feeibc, evm, feemarket and gravity.
+
+*Jun 9, 2023*
+
+## v1.0.9
+
+- [#1059](https://github.com/crypto-org-chain/cronos/pull/1059) Patch barberry.
+
+*May 30, 2023*
+
+## v1.0.8
+
+- [#1038](https://github.com/crypto-org-chain/cronos/pull/1038) Update ibc-go to `v5.2.1`.
+- [#1052](https://github.com/crypto-org-chain/cronos/pull/1052) Revert accidental breaking change in `v1.0.7`.
+
+*April 13, 2023*
+
+## v1.0.7
+
+### Improvements
+
+- [#936](https://github.com/crypto-org-chain/cronos/pull/936) Reuse recovered sender address to optimize performance ([ethermint commit](https://github.com/crypto-org-chain/ethermint/commit/cb741e1d819683795aa32e286d31d8155f903cae)).
+- [#949](https://github.com/crypto-org-chain/cronos/pull/949) Release static-linked binaries for linux platform.
+- [#934](https://github.com/crypto-org-chain/cronos/pull/934) Add pebbledb backend.
+
+### Bug Fixes
+
+* [#953](https://github.com/crypto-org-chain/cronos/pull/953) Include third-party bug fixes:
+  - update ethermint to include two bug fixes
+    - https://github.com/crypto-org-chain/ethermint/pull/234
+    - https://github.com/crypto-org-chain/ethermint/pull/233
+  - update cosmos-sdk to include one bug fix
+    - https://github.com/cosmos/cosmos-sdk/pull/15667
+* [#945](https://github.com/crypto-org-chain/cronos/pull/945) Fix no handler exists for proposal type error when update-client due to wrong ibc route.
+
+*Mar 16, 2023*
+
+## v1.0.6
+
+### Bug Fixes
+
+* [#932](https://github.com/crypto-org-chain/cronos/pull/932) Backport multiple json-rpc bug fixes in ethermint ([commits](https://github.com/crypto-org-chain/ethermint/compare/v0.20.8-cronos...v0.20.9-cronos)).
+
 *Mar 6, 2023*
 
 ## v1.0.5

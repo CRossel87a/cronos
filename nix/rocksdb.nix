@@ -10,7 +10,9 @@
 , zlib
 , zstd
 , windows
-, enableJemalloc ? false
+  # only enable jemalloc for non-windows platforms
+  # see: https://github.com/NixOS/nixpkgs/issues/216479
+, enableJemalloc ? !stdenv.hostPlatform.isWindows && !stdenv.hostPlatform.isStatic
 , jemalloc
 , enableLite ? false
 , enableShared ? !stdenv.hostPlatform.isStatic
@@ -19,13 +21,13 @@
 
 stdenv.mkDerivation rec {
   pname = "rocksdb";
-  version = "7.9.2";
+  version = "8.1.1";
 
   src = fetchFromGitHub {
     owner = "facebook";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-5P7IqJ14EZzDkbjaBvbix04ceGGdlWBuVFH/5dpD5VM=";
+    sha256 = "sha256-79hRtc5QSWLLyjRGCmuYZSoIc9IcIsnl8UCinz2sVw4=";
   };
 
   nativeBuildInputs = [ cmake ninja ];
@@ -79,7 +81,7 @@ stdenv.mkDerivation rec {
     mkdir -p $tools/bin
     cp tools/{ldb,sst_dump}${stdenv.hostPlatform.extensions.executable} $tools/bin/
   '' + lib.optionalString stdenv.isDarwin ''
-    ls -1 $tools/bin/* | xargs -I{} ${stdenv.cc.bintools.targetPrefix}install_name_tool -change "@rpath/librocksdb.7.dylib" $out/lib/librocksdb.dylib {}
+    ls -1 $tools/bin/* | xargs -I{} ${stdenv.cc.bintools.targetPrefix}install_name_tool -change "@rpath/librocksdb.${lib.versions.major version}.dylib" $out/lib/librocksdb.dylib {}
   '' + lib.optionalString (stdenv.isLinux && enableShared) ''
     ls -1 $tools/bin/* | xargs -I{} patchelf --set-rpath $out/lib:${stdenv.cc.cc.lib}/lib {}
   '';
@@ -92,7 +94,7 @@ stdenv.mkDerivation rec {
     fi
   '' + lib.optionalString stdenv.isDarwin ''
     ${stdenv.cc.targetPrefix}install_name_tool -change "@rpath/libsnappy.1.dylib" "${snappy}/lib/libsnappy.1.dylib" $out/lib/librocksdb.dylib
-    ${stdenv.cc.targetPrefix}install_name_tool -change "@rpath/librocksdb.7.dylib" "$out/lib/librocksdb.7.dylib" $out/lib/librocksdb.dylib
+    ${stdenv.cc.targetPrefix}install_name_tool -change "@rpath/librocksdb.${lib.versions.major version}.dylib" "$out/lib/librocksdb.${lib.versions.major version}.dylib" $out/lib/librocksdb.dylib
   '';
 
   meta = with lib; {

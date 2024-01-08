@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,6 +25,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
 	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/cosmos/cosmos-sdk/server"
 	"github.com/cosmos/cosmos-sdk/server/api"
 	"github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
@@ -100,6 +102,7 @@ import (
 	ibc "github.com/cosmos/ibc-go/v5/modules/core"
 	ibcclient "github.com/cosmos/ibc-go/v5/modules/core/02-client"
 	ibcclientclient "github.com/cosmos/ibc-go/v5/modules/core/02-client/client"
+	ibcclienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
 	porttypes "github.com/cosmos/ibc-go/v5/modules/core/05-port/types"
 	ibchost "github.com/cosmos/ibc-go/v5/modules/core/24-host"
 	ibckeeper "github.com/cosmos/ibc-go/v5/modules/core/keeper"
@@ -129,6 +132,8 @@ import (
 	evmhandlers "github.com/crypto-org-chain/cronos/x/cronos/keeper/evmhandlers"
 	cronostypes "github.com/crypto-org-chain/cronos/x/cronos/types"
 
+	memiavlstore "github.com/crypto-org-chain/cronos/store"
+
 	// unnamed import of statik for swagger UI support
 	_ "github.com/crypto-org-chain/cronos/client/docs/statik"
 
@@ -148,7 +153,7 @@ const (
 	// NOTE: In the SDK, the default value is 255.
 	AddrLen = 20
 
-	FileStreamerDirectory = "file_streamer"
+	FlagBlockedAddresses = "blocked-addresses"
 )
 
 // this line is used by starport scaffolding # stargate/wasm/app/enabledProposals
@@ -335,6 +340,10 @@ type App struct {
 
 	// if enable experimental gravity-bridge feature module
 	experimental bool
+
+	// duplicate it because it's private in sdk
+	haltHeight uint64
+	haltTime   uint64
 }
 
 // New returns a reference to an initialized chain.
@@ -351,7 +360,9 @@ func New(
 
 	experimental := cast.ToBool(appOpts.Get(cronos.ExperimentalFlag))
 
+	baseAppOptions = memiavlstore.SetupMemIAVL(logger, homePath, appOpts, true, baseAppOptions)
 	bApp := baseapp.NewBaseApp(Name, logger, db, encodingConfig.TxConfig.TxDecoder(), baseAppOptions...)
+
 	bApp.SetCommitMultiStoreTracer(traceStore)
 	bApp.SetVersion(version.Version)
 	bApp.SetInterfaceRegistry(interfaceRegistry)
@@ -385,6 +396,8 @@ func New(
 		tkeys:             tkeys,
 		memKeys:           memKeys,
 		experimental:      experimental,
+		haltHeight:        cast.ToUint64(appOpts.Get(server.FlagHaltHeight)),
+		haltTime:          cast.ToUint64(appOpts.Get(server.FlagHaltTime)),
 	}
 
 	app.ParamsKeeper = initParamsKeeper(appCodec, cdc, keys[paramstypes.StoreKey], tkeys[paramstypes.TStoreKey], experimental)
@@ -515,7 +528,7 @@ func New(
 		AddRoute(paramproposal.RouterKey, params.NewParamChangeProposalHandler(app.ParamsKeeper)).
 		AddRoute(distrtypes.RouterKey, distr.NewCommunityPoolSpendProposalHandler(app.DistrKeeper)).
 		AddRoute(upgradetypes.RouterKey, upgrade.NewSoftwareUpgradeProposalHandler(app.UpgradeKeeper)).
-		AddRoute(ibchost.RouterKey, ibcclient.NewClientProposalHandler(app.IBCKeeper.ClientKeeper)).
+		AddRoute(ibcclienttypes.RouterKey, ibcclient.NewClientProposalHandler(app.IBCKeeper.ClientKeeper)).
 		AddRoute(cronostypes.RouterKey, cronos.NewTokenMappingChangeProposalHandler(app.CronosKeeper))
 
 	govConfig := govtypes.DefaultConfig()
@@ -742,7 +755,13 @@ func New(
 	app.SetInitChainer(app.InitChainer)
 	app.SetBeginBlocker(app.BeginBlocker)
 	app.SetEndBlocker(app.EndBlocker)
-	app.setAnteHandler(encodingConfig.TxConfig, cast.ToUint64(appOpts.Get(srvflags.EVMMaxTxGasWanted)))
+
+	app.setAnteHandler(
+		encodingConfig.TxConfig,
+		cast.ToUint64(appOpts.Get(srvflags.EVMMaxTxGasWanted)),
+		cast.ToStringSlice(appOpts.Get(FlagBlockedAddresses)),
+	)
+
 	// In v0.46, the SDK introduces _postHandlers_. PostHandlers are like
 	// antehandlers, but are run _after_ the `runMsgs` execution. They are also
 	// defined as a chain, and have the same signature as antehandlers.
@@ -780,7 +799,7 @@ func New(
 }
 
 // use Ethermint's custom AnteHandler
-func (app *App) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64) {
+func (app *App) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64, blacklist []string) {
 	anteHandler, err := evmante.NewAnteHandler(evmante.HandlerOptions{
 		AccountKeeper:          app.AccountKeeper,
 		BankKeeper:             app.BankKeeper,
@@ -793,6 +812,7 @@ func (app *App) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64) {
 		MaxTxGasWanted:         maxGasWanted,
 		ExtensionOptionChecker: ethermint.HasDynamicFeeExtensionOption,
 		TxFeeChecker:           evmante.NewDynamicFeeChecker(app.EvmKeeper),
+		Blacklist:              blacklist,
 	})
 	if err != nil {
 		panic(err)
@@ -816,6 +836,26 @@ func (app *App) Name() string { return app.BaseApp.Name() }
 
 // BeginBlocker application updates every begin block
 func (app *App) BeginBlocker(ctx sdk.Context, req abci.RequestBeginBlock) abci.ResponseBeginBlock {
+	// backport: https://github.com/cosmos/cosmos-sdk/pull/16639
+	var halt bool
+	switch {
+	case app.haltHeight > 0 && uint64(req.Header.Height) > app.haltHeight:
+		halt = true
+
+	case app.haltTime > 0 && req.Header.Time.Unix() > int64(app.haltTime):
+		halt = true
+	}
+
+	if halt {
+		app.Logger().Info("halting node per configuration", "height", app.haltHeight, "time", app.haltTime)
+		if err := app.Close(); err != nil {
+			app.Logger().Info("close application failed", "error", err)
+		}
+		panic("halt application")
+	}
+
+	BeginBlockForks(ctx, app)
+
 	return app.mm.BeginBlock(ctx, req)
 }
 
@@ -995,4 +1035,15 @@ func VerifyAddressFormat(bz []byte) error {
 	}
 
 	return nil
+}
+
+// Close will be called in graceful shutdown in start cmd
+func (app *App) Close() error {
+	err := app.BaseApp.Close()
+
+	if cms, ok := app.CommitMultiStore().(io.Closer); ok {
+		return errors.Join(err, cms.Close())
+	}
+
+	return err
 }

@@ -61,6 +61,8 @@ ifeq (boltdb,$(findstring boltdb,$(COSMOS_BUILD_OPTIONS)))
   BUILD_TAGS += boltdb
 endif
 
+BUILD_TAGS += nativebyteorder
+
 ifeq (,$(findstring nostrip,$(COSMOS_BUILD_OPTIONS)))
   ldflags += -w -s
 endif
@@ -213,6 +215,12 @@ test-sim-profile:
 ###############################################################################
 ###                                Integration Test                         ###
 ###############################################################################
+
+# possible values:
+# - all: run all integration tests
+# - unmarked: run integration tests that are not marked
+# - marker1,marker2: markers separated by comma, run integration tests that are marked with any of the markers
+TESTS_TO_RUN ?= all
 
 run-integration-tests:
 	@nix-shell ./integration_tests/shell.nix --run ./scripts/run-integration-tests

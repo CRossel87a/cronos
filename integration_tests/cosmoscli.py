@@ -120,8 +120,22 @@ class CosmosCLI:
             home=self.data_dir,
         )
 
-    def validate_genesis(self):
-        return self.raw("validate-genesis", home=self.data_dir)
+    def migrate_sdk_genesis(self, version, path):
+        return json.loads(self.raw("migrate", version, path))
+
+    def migrate_cronos_genesis(self, version, path):
+        return json.loads(
+            self.raw(
+                "tx",
+                "cronos",
+                "migrate",
+                version,
+                path,
+            )
+        )
+
+    def validate_genesis(self, path):
+        return self.raw("validate-genesis", path)
 
     def add_genesis_account(self, addr, coins, **kwargs):
         return self.raw(
@@ -862,7 +876,7 @@ class CosmosCLI:
         return self.raw("export", home=self.data_dir)
 
     def unsaferesetall(self):
-        return self.raw("unsafe-reset-all")
+        return self.raw("tendermint", "unsafe-reset-all")
 
     def create_nft(self, from_addr, denomid, denomname, schema, fees):
         return json.loads(
@@ -1105,6 +1119,31 @@ class CosmosCLI:
                 home=self.data_dir,
                 stderr=subprocess.DEVNULL,
                 **(default_kwargs | kwargs),
+            )
+        )
+
+    def gov_propose_update_client_legacy(self, proposal, **kwargs):
+        kwargs.setdefault("gas_prices", DEFAULT_GAS_PRICE)
+        kwargs.setdefault("gas", 600000)
+        return json.loads(
+            self.raw(
+                "tx",
+                "gov",
+                "submit-legacy-proposal",
+                "update-client",
+                proposal.get("subject_client_id"),
+                proposal.get("substitute_client_id"),
+                "-y",
+                from_=proposal.get("from"),
+                keyring_backend="test",
+                # content
+                title=proposal.get("title"),
+                description=proposal.get("description"),
+                deposit=proposal.get("deposit"),
+                chain_id=self.chain_id,
+                home=self.data_dir,
+                stderr=subprocess.DEVNULL,
+                **kwargs,
             )
         )
 

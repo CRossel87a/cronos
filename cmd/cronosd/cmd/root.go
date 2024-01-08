@@ -23,6 +23,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/pruning"
 	"github.com/cosmos/cosmos-sdk/client/rpc"
+	"github.com/cosmos/cosmos-sdk/client/snapshot"
 	"github.com/cosmos/cosmos-sdk/server"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -41,6 +42,7 @@ import (
 	"github.com/crypto-org-chain/cronos/app"
 	"github.com/crypto-org-chain/cronos/cmd/cronosd/experimental"
 	"github.com/crypto-org-chain/cronos/cmd/cronosd/opendb"
+	memiavlcfg "github.com/crypto-org-chain/cronos/store/config"
 	"github.com/crypto-org-chain/cronos/x/cronos"
 	// this line is used by starport scaffolding # stargate/root/import
 )
@@ -124,6 +126,7 @@ func initRootCmd(rootCmd *cobra.Command, encodingConfig params.EncodingConfig) {
 		debug.Cmd(),
 		config.Cmd(),
 		pruning.PruningCmd(a.newApp),
+		snapshot.Cmd(a.newApp),
 		// this line is used by starport scaffolding # stargate/root/commands
 	)
 
@@ -212,7 +215,20 @@ func txCommand() *cobra.Command {
 // initAppConfig helps to override default appConfig template and configs.
 // return "", nil if no custom configuration is required for the application.
 func initAppConfig() (string, interface{}) {
-	return servercfg.AppConfig(ethermint.AttoPhoton)
+	type CustomAppConfig struct {
+		servercfg.Config
+
+		MemIAVL memiavlcfg.MemIAVLConfig `mapstructure:"memiavl"`
+	}
+
+	tpl, cfg := servercfg.AppConfig(ethermint.AttoPhoton)
+
+	customAppConfig := CustomAppConfig{
+		Config:  cfg.(servercfg.Config),
+		MemIAVL: memiavlcfg.DefaultMemIAVLConfig(),
+	}
+
+	return tpl + memiavlcfg.DefaultConfigTemplate, customAppConfig
 }
 
 type appCreator struct {

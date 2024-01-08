@@ -8,6 +8,8 @@ from web3.datastructures import AttributeDict
 from .network import setup_custom_cronos
 from .utils import ADDRS, CONTRACTS, KEYS, deploy_contract, sign_transaction
 
+pytestmark = pytest.mark.slow
+
 
 @pytest.fixture(scope="module")
 def custom_cronos(tmp_path_factory):
@@ -17,7 +19,7 @@ def custom_cronos(tmp_path_factory):
     )
 
 
-def test_replay_block(custom_cronos):
+def test_block_overflow(custom_cronos):
     w3: web3.Web3 = custom_cronos.w3
     contract = deploy_contract(
         w3,
@@ -31,14 +33,14 @@ def test_replay_block(custom_cronos):
         nonce = w3.eth.get_transaction_count(ADDRS["validator"])
         begin_balance = w3.eth.get_balance(ADDRS["validator"])
         txs = [
-            contract.functions.test(iterations).buildTransaction(
+            contract.functions.test(iterations).build_transaction(
                 {
                     "nonce": nonce,
                     "gas": gas_limit,
                     "gasPrice": gas_price,
                 }
             ),
-            contract.functions.test(iterations).buildTransaction(
+            contract.functions.test(iterations).build_transaction(
                 {
                     "nonce": nonce + 1,
                     "gas": gas_limit + 1,

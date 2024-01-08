@@ -1,6 +1,7 @@
 import json
 
 import pytest
+import requests
 import sha3
 import toml
 from dateutil.parser import isoparse
@@ -205,7 +206,7 @@ def gravity(cronos, geth):
     for _, address in enumerate(eth_addresses):
         set_role_tx = contract.functions.grantRole(
             k_relayer.hexdigest(), address
-        ).buildTransaction({"from": admin.address})
+        ).build_transaction({"from": admin.address})
         set_role_receipt = send_transaction(geth, set_role_tx, admin.key)
         print("set_role_tx", set_role_receipt)
 
@@ -282,17 +283,16 @@ def test_gravity_transfer(gravity):
         # send it back to erc20
         tx = crc21_contract.functions.send_to_chain(
             ADDRS["validator"], amount, 0, 1
-        ).buildTransaction({"from": ADDRS["community"]})
+        ).build_transaction({"from": ADDRS["community"]})
         txreceipt = send_transaction(cronos_w3, tx, KEYS["community"])
         # CRC20 emit 3 logs for send_to_chain:
         # burn
         # __CronosSendToChain
         # __CronosSendToChainResponse
         assert len(txreceipt.logs) == 3
-        assert (
-            get_id_from_receipt(txreceipt)
-            == "0x0000000000000000000000000000000000000000000000000000000000000001"
-        ), "should be able to get id"
+        data = "0x0000000000000000000000000000000000000000000000000000000000000001"
+        match = get_id_from_receipt(txreceipt) == HexBytes(data)
+        assert match, "should be able to get id"
         assert txreceipt.status == 1, "should success"
     else:
         wait_for_fn("send-to-gravity-native", check_gravity_native_tokens)
@@ -382,6 +382,17 @@ def test_gov_token_mapping(gravity):
         return balance == 10
 
     wait_for_fn("check balance on cronos", check)
+
+    # check duplicate end_block_events
+    height = cli.block_height()
+    port = ports.rpc_port(gravity.cronos.base_port(0))
+    url = f"http://127.0.0.1:{port}/block_results?height={height}"
+    res = requests.get(url).json().get("result")
+    if res:
+        events = res["end_block_events"]
+        target = "ethereum_send_to_cosmos_handled"
+        count = sum(1 for evt in events if evt["type"] == target)
+        assert count <= 2, f"duplicate {target}"
 
 
 @pytest.mark.skip(reason="gravity-bridge not supported in v1.0.x")
@@ -492,7 +503,7 @@ def test_gravity_cancel_transfer(gravity):
         # send it back to erc20
         tx = crc21_contract.functions.send_to_chain(
             ADDRS["validator"], amount, 0, 1
-        ).buildTransaction({"from": community})
+        ).build_transaction({"from": community})
         txreceipt = send_transaction(cronos_w3, tx, KEYS["community"])
         # CRC20 emit 3 logs for send_to_chain:
         # burn
@@ -509,7 +520,7 @@ def test_gravity_cancel_transfer(gravity):
         # Cancel the send_to_chain
         canceltx = cancel_contract.functions.cancelTransaction(
             int(tx_id, base=16)
-        ).buildTransaction({"from": community})
+        ).build_transaction({"from": community})
         canceltxreceipt = send_transaction(cronos_w3, canceltx, KEYS["community"])
         print("canceltxreceipt", canceltxreceipt)
         assert canceltxreceipt.status == 1, "should success"
@@ -576,7 +587,7 @@ def test_gravity_source_tokens(gravity):
         print("send to ethereum")
         tx = contract.functions.send_to_chain(
             ethereum_receiver, amount, 0, 1
-        ).buildTransaction({"from": ADDRS["validator"]})
+        ).build_transaction({"from": ADDRS["validator"]})
         txreceipt = send_transaction(w3, tx)
         assert txreceipt.status == 1, "should success"
 
@@ -663,7 +674,7 @@ def test_gravity_blacklisted_contract(gravity):
         # send it back to blacklisted address
         tx = crc21_contract.functions.send_to_chain(
             ADDRS["signer1"], amount, 0, 1
-        ).buildTransaction({"from": ADDRS["community"]})
+        ).build_transaction({"from": ADDRS["community"]})
         txreceipt = send_transaction(cronos_w3, tx, KEYS["community"])
         assert txreceipt.status == 1, "should success"
 
@@ -689,7 +700,7 @@ def test_gravity_blacklisted_contract(gravity):
         with pytest.raises(Exception):
             gravity.contract.functions.redeemVoucher(
                 old_nonce, ADDRS["signer2"]
-            ).buildTransaction({"from": ADDRS["validator"]})
+            ).build_transaction({"from": ADDRS["validator"]})
 
         # send user1 some fund for gas
         send_transaction(
@@ -698,7 +709,7 @@ def test_gravity_blacklisted_contract(gravity):
         # redeem voucher
         tx = gravity.contract.functions.redeemVoucher(
             old_nonce, ADDRS["signer2"]
-        ).buildTransaction({"from": ADDRS["signer1"]})
+        ).build_transaction({"from": ADDRS["signer1"]})
         txreceipt = send_transaction(geth, tx, KEYS["signer1"])
         assert txreceipt.status == 1, "should success"
         w3_wait_for_new_blocks(geth, 1)
@@ -709,4 +720,4 @@ def test_gravity_blacklisted_contract(gravity):
         with pytest.raises(Exception):
             gravity.contract.functions.redeemVoucher(
                 old_nonce, ADDRS["signer2"]
-            ).buildTransaction({"from": ADDRS["signer1"]})
+            ).build_transaction({"from": ADDRS["signer1"]})

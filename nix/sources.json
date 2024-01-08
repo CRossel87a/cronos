@@ -54,10 +54,10 @@
         "homepage": null,
         "owner": "nix-community",
         "repo": "gomod2nix",
-        "rev": "89cd0675b96775aa3ee86e7c0cf5bc238dd27976",
-        "sha256": "1x7w9ibp9nxzsaqg9lm6sav0438rwdh76r9pi40hikzn4nl9w4p0",
+        "rev": "3cbf3a51fe32e2f57af4c52744e7228bab22983d",
+        "sha256": "11kn199nxcw6zspqawkrsfwv8wzx581wif3day160qlg11ya9di5",
         "type": "tarball",
-        "url": "https://github.com/nix-community/gomod2nix/archive/89cd0675b96775aa3ee86e7c0cf5bc238dd27976.tar.gz",
+        "url": "https://github.com/nix-community/gomod2nix/archive/3cbf3a51fe32e2f57af4c52744e7228bab22983d.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "gravity-bridge": {
@@ -97,15 +97,15 @@
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "nixpkgs": {
-        "branch": "release-22.11",
+        "branch": "master",
         "description": "Nix Packages collection",
         "homepage": "",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "348e6da1fb8e95c5978de849106c187aa5e8b5ae",
-        "sha256": "171f0av9flgk8qi344c1ksr49rf9dv1as791swg9bbpk2dmy7vyw",
+        "rev": "90aa73fc8e1550b16d1ebdc436e48d9951f7989b",
+        "sha256": "0jh4npbcqjlszhnaz5mkziv5g1p5ig6wqp68yjxkjllsc7vhsrw6",
         "type": "tarball",
-        "url": "https://github.com/NixOS/nixpkgs/archive/348e6da1fb8e95c5978de849106c187aa5e8b5ae.tar.gz",
+        "url": "https://github.com/NixOS/nixpkgs/archive/90aa73fc8e1550b16d1ebdc436e48d9951f7989b.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }

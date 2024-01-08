@@ -268,6 +268,20 @@ def add_ini_sections(inipath, sections):
         ini.write(fp)
 
 
+def edit_ini_sections(chain_id, ini_path, callback):
+    ini = configparser.RawConfigParser()
+    ini.read(ini_path)
+    reg = re.compile(rf"^program:{chain_id}-node(\d+)")
+    for section in ini.sections():
+        m = reg.match(section)
+        if m:
+            i = m.group(1)
+            old = ini[section]
+            ini[section].update(callback(i, old))
+    with ini_path.open("w") as fp:
+        ini.write(fp)
+
+
 def supervisorctl(inipath, *args):
     return subprocess.check_output(
         (sys.executable, "-msupervisor.supervisorctl", "-c", inipath, *args),
@@ -281,7 +295,7 @@ def deploy_contract(w3, jsonfile, args=(), key=KEYS["validator"]):
     acct = Account.from_key(key)
     info = json.loads(jsonfile.read_text())
     contract = w3.eth.contract(abi=info["abi"], bytecode=info["bytecode"])
-    tx = contract.constructor(*args).buildTransaction({"from": acct.address})
+    tx = contract.constructor(*args).build_transaction({"from": acct.address})
     txreceipt = send_transaction(w3, tx, key)
     assert txreceipt.status == 1
     address = txreceipt.contractAddress
@@ -326,7 +340,7 @@ def send_to_cosmos(gravity_contract, token_contract, recipient, amount, key=None
         token_contract.web3,
         token_contract.functions.approve(
             gravity_contract.address, amount
-        ).buildTransaction({"from": acct.address}),
+        ).build_transaction({"from": acct.address}),
         key,
     )
     assert txreceipt.status == 1, "approve failed"
@@ -335,7 +349,7 @@ def send_to_cosmos(gravity_contract, token_contract, recipient, amount, key=None
         gravity_contract.web3,
         gravity_contract.functions.sendToCronos(
             token_contract.address, HexBytes(recipient), amount
-        ).buildTransaction({"from": acct.address}),
+        ).build_transaction({"from": acct.address}),
         key,
     )
 
@@ -347,7 +361,7 @@ def deploy_erc20(gravity_contract, denom, name, symbol, decimal, key=None):
         gravity_contract.web3,
         gravity_contract.functions.deployERC20(
             denom, name, symbol, decimal
-        ).buildTransaction({"from": acct.address}),
+        ).build_transaction({"from": acct.address}),
         key,
     )
 
@@ -382,7 +396,7 @@ class Contract:
         if self.contract is None:
             self.w3 = w3
             contract = self.w3.eth.contract(abi=self.abi, bytecode=self.bytecode)
-            transaction = contract.constructor().buildTransaction(
+            transaction = contract.constructor().build_transaction(
                 {"chainId": self.chain_id, "from": self.address}
             )
             receipt = send_transaction(self.w3, transaction, self.private_key)
@@ -399,7 +413,7 @@ class Greeter(Contract):
 
     def transfer(self, string):
         "Call contract on `w3` and return the receipt."
-        transaction = self.contract.functions.setGreeting(string).buildTransaction(
+        transaction = self.contract.functions.setGreeting(string).build_transaction(
             {
                 "chainId": self.chain_id,
                 "from": self.address,
@@ -415,7 +429,7 @@ class RevertTestContract(Contract):
 
     def transfer(self, value):
         "Call contract on `w3` and return the receipt."
-        transaction = self.contract.functions.transfer(value).buildTransaction(
+        transaction = self.contract.functions.transfer(value).build_transaction(
             {
                 "chainId": self.chain_id,
                 "from": self.address,
@@ -485,6 +499,15 @@ def get_receipts_by_block(w3, blk):
     return rsp
 
 
+def send_raw_transactions(w3, raw_transactions):
+    with ThreadPoolExecutor(len(raw_transactions)) as exec:
+        tasks = [
+            exec.submit(w3.eth.send_raw_transaction, raw) for raw in raw_transactions
+        ]
+        sended_hash_set = {future.result() for future in as_completed(tasks)}
+    return sended_hash_set
+
+
 def send_txs(w3, cli, to, keys, params):
     tx = {"to": to, "value": 10000} | params
     # use different sender accounts to be able be send concurrently
@@ -498,10 +521,6 @@ def send_txs(w3, cli, to, keys, params):
     print(f"block number start: {block_num_0}")
 
     # send transactions
-    with ThreadPoolExecutor(len(raw_transactions)) as exec:
-        tasks = [
-            exec.submit(w3.eth.send_raw_transaction, raw) for raw in raw_transactions
-        ]
-        sended_hash_set = {future.result() for future in as_completed(tasks)}
+    sended_hash_set = send_raw_transactions(w3, raw_transactions)
 
     return block_num_0, sended_hash_set

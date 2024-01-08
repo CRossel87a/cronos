@@ -11,16 +11,10 @@ let
 in
 import sources.nixpkgs {
   overlays = [
+    (import ./build_overlay.nix)
     (_: pkgs: dapptools) # use released version to hit the binary cache
     (final: pkgs: rec {
-      go_1_19 = pkgs.go_1_19.overrideAttrs (_: rec {
-        version = "1.19.6";
-        src = final.fetchurl {
-          url = "https://go.dev/dl/go${version}.src.tar.gz";
-          hash = "sha256-1/ABP4Lm1/hizGy1yM20ju9fLiObNbqpfi8adGYEN2c=";
-        };
-      });
-      go = go_1_19;
+      go = pkgs.go_1_20;
       go-ethereum = pkgs.callPackage ./go-ethereum.nix {
         inherit (pkgs.darwin) libobjc;
         inherit (pkgs.darwin.apple_sdk.frameworks) IOKit;
@@ -58,9 +52,6 @@ import sources.nixpkgs {
       hermes = pkgs.callPackage ./hermes.nix { src = sources.ibc-rs; };
     })
     (_: pkgs: { test-env = pkgs.callPackage ./testenv.nix { }; })
-    (pkgs: _: {
-      rocksdb = pkgs.callPackage ./rocksdb.nix { enableJemalloc = true; };
-    })
     (_: pkgs: {
       cosmovisor = pkgs.buildGo118Module rec {
         name = "cosmovisor";

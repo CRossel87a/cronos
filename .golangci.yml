@@ -9,7 +9,6 @@ run:
 linters:
   disable-all: true
   enable:
-    - depguard
     - dogsled
     - exportloopref
     - goconst
@@ -23,7 +22,6 @@ linters:
     - nakedret
     - nolintlint
     - staticcheck
-    - revive
     - stylecheck
     - typecheck
     - unconvert

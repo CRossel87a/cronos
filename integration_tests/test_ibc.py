@@ -19,6 +19,8 @@ from .utils import (
     wait_for_new_blocks,
 )
 
+pytestmark = pytest.mark.ibc
+
 
 @pytest.fixture(scope="module", params=[True, False])
 def ibc(request, tmp_path_factory):
@@ -32,6 +34,21 @@ def ibc(request, tmp_path_factory):
 
 def get_balances(chain, addr):
     return chain.cosmos_cli().balances(addr)
+
+
+def find_duplicate(attributes):
+    res = set()
+    key = attributes[0]["key"]
+    for attribute in attributes:
+        if attribute["key"] == key:
+            value0 = attribute["value"]
+        elif attribute["key"] == "amount":
+            amount = attribute["value"]
+            value_pair = f"{value0}:{amount}"
+            if value_pair in res:
+                return value_pair
+            res.add(value_pair)
+    return None
 
 
 def test_ibc_transfer_with_hermes(ibc):
@@ -64,6 +81,14 @@ def test_ibc_transfer_with_hermes(ibc):
     # the effective fee is decided by the max_priority_fee (base fee is zero)
     # rather than the normal gas price
     assert fee == gas * 1000000
+
+    # check duplicate OnRecvPacket events
+    criteria = "message.action=/ibc.core.channel.v1.MsgRecvPacket"
+    tx = cli.tx_search(criteria)["txs"][0]
+    events = tx["logs"][1]["events"]
+    for event in events:
+        dup = find_duplicate(event["attributes"])
+        assert not dup, f"duplicate {dup} in {event['type']}"
 
 
 def test_ibc_incentivized_transfer(ibc):
@@ -205,7 +230,7 @@ def test_cro_bridge_contract(ibc):
     # case 2: use CroBridge contract
     w3 = ibc.cronos.w3
     contract = deploy_contract(w3, CONTRACTS["CroBridge"])
-    tx = contract.functions.send_cro_to_crypto_org(dst_addr).buildTransaction(
+    tx = contract.functions.send_cro_to_crypto_org(dst_addr).build_transaction(
         {"from": ADDRS["signer2"], "value": src_amount}
     )
     receipt = send_transaction(w3, tx)
@@ -270,7 +295,7 @@ def test_cronos_transfer_source_tokens(ibc):
     assert chainmain_receiver_balance == 0
 
     # send to ibc
-    tx = contract.functions.send_to_ibc(chainmain_receiver, amount).buildTransaction(
+    tx = contract.functions.send_to_ibc(chainmain_receiver, amount).build_transaction(
         {"from": ADDRS["validator"]}
     )
     txreceipt = send_transaction(w3, tx)
